@@ -1,11 +1,23 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+} from "@/components/ui/card";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+import { User as UserIcon, ShieldIcon, MailIcon, CalendarDaysIcon } from "lucide-react";
+import { format } from "date-fns";
+import { UserAvatar } from "@/components/user-avatar";
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -19,14 +31,14 @@ export default function DashboardPage() {
 
     if (isPending)
         return (
-            <main className="flex min-h-screen items-center justify-center text-white">
+            <main className="min-h-screen flex items-center justify-center">
                 Loading...
             </main>
         );
 
     if (!session?.user)
         return (
-            <main className="flex min-h-screen items-center justify-center text-white">
+            <main className="min-h-screen flex items-center justify-center">
                 Redirecting...
             </main>
         );
@@ -34,27 +46,103 @@ export default function DashboardPage() {
     const { user } = session;
 
     return (
-        <main className="flex min-h-screen items-center justify-center p-4 ">
-            <Card className="w-full max-w-md text-black border-neutral-800 bg-white border-1 border-gray-400">
-                <CardHeader>
-                    <CardTitle className="text-center text-2xl">
-                        Dashboard
-                    </CardTitle>
-                </CardHeader>
+        <main className="mx-auto w-full max-w-6xl px-4 py-12 space-y-8">
+            {/* Header Section */}
+            <div className="space-y-2">
+                <h1 className="text-3xl font-semibold">Dashboard</h1>
+                <p className="text-muted-foreground">
+                    Welcome back! Here’s your account overview.
+                </p>
+            </div>
 
-                <CardContent className="text-center space-y-2">
-                    <p>Welcome, <span className="font-semibold">{user.name}</span>!</p>
-                    <p className="text-neutral-300">{user.email}</p>
+            {/* Email Verification Alert */}
+            {!user.emailVerified && <EmailVerificationAlert />}
 
-                    <Button
-                        onClick={() => signOut()}
-                        className="w-full mt-4"
-                        variant="default"
-                    >
-                        Sign Out
-                    </Button>
-                </CardContent>
-            </Card>
+            {/* Profile Card */}
+            <ProfileCard user={user} />
+
+            {/* Sign Out button */}
+            <Button variant="destructive" onClick={() => signOut()} className="mt-6">
+                Sign Out
+            </Button>
         </main>
+    );
+}
+
+/* ------------------ PROFILE CARD ------------------ */
+
+function ProfileCard({ user }: { user: any }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <UserIcon className="size-5" />
+                    Profile Information
+                </CardTitle>
+                <CardDescription>Your account details and current status</CardDescription>
+            </CardHeader>
+
+            <CardContent>
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+                    {/* Avatar + Role */}
+                    <div className="flex flex-col items-center gap-3">
+                        <UserAvatar
+                            name={user.name}
+                            image={user.image}
+                            className="size-32 sm:size-24"
+                        />
+
+                        {user.role && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                                <ShieldIcon className="size-3" />
+                                {user.role}
+                            </Badge>
+                        )}
+                    </div>
+
+                    {/* User Info */}
+                    <div className="flex-1 space-y-4">
+                        <div>
+                            <h3 className="text-2xl font-semibold">{user.name}</h3>
+                            <p className="text-muted-foreground">{user.email}</p>
+                        </div>
+
+                        {/* Member Since */}
+                        {user.createdAt && (
+                            <div className="space-y-1">
+                                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                                    <CalendarDaysIcon className="size-4" />
+                                    Member Since
+                                </div>
+                                <p className="font-medium">
+                                    {format(new Date(user.createdAt), "MMMM d, yyyy")}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/* ------------------ EMAIL VERIFICATION ALERT ------------------ */
+
+function EmailVerificationAlert() {
+    return (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800/50 dark:bg-yellow-900/40">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <MailIcon className="size-5 text-yellow-700 dark:text-yellow-400" />
+                    <span className="text-yellow-800 dark:text-yellow-200">
+            Please verify your email address to unlock all features.
+          </span>
+                </div>
+
+                <Button size="sm" variant="secondary" asChild>
+                    <a href="/verify-email">Verify Email</a>
+                </Button>
+            </div>
+        </div>
     );
 }

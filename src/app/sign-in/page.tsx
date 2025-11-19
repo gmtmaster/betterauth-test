@@ -1,74 +1,201 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
 
-import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import { Card, CardHeader, CardContent, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+
+import {
+    Form,
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormMessage,
+    FormField,
+} from "@/components/ui/form";
+
+import { PasswordInput } from "@/components/password-input";
+import { LoadingButton } from "@/components/loading-button";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
+
+const schema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1, "Password is required"),
+    rememberMe: z.boolean().optional(),
+});
+
+type Values = z.infer<typeof schema>;
 
 export default function SignInPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirect = searchParams.get("redirect") ?? "/dashboard";
+
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        setError(null);
+    const form = useForm<Values>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            email: "",
+            password: "",
+            rememberMe: false,
+        },
+    });
 
-        const formData = new FormData(e.currentTarget);
+    async function onSubmit(values: Values) {
+        setError(null);
+        setLoading(true);
 
         const res = await signIn.email({
-            email: formData.get("email") as string,
-            password: formData.get("password") as string,
+            email: values.email,
+            password: values.password,
+            rememberMe: values.rememberMe,
         });
+
+        setLoading(false);
 
         if (res.error) {
             setError(res.error.message ?? "Something went wrong.");
         } else {
-            router.push("/dashboard");
+            router.push(redirect);
+        }
+    }
+
+    async function handleSocial(provider: "google" | "github") {
+        setError(null);
+        setLoading(true);
+
+        const res = await signIn.social({
+            provider,
+            callbackURL: redirect,
+        });
+
+        setLoading(false);
+
+        if (res.error) {
+            setError(res.error.message ?? "Something went wrong.");
         }
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center p-4 bg-neutral-950">
-            <Card className="w-full max-w-md text-white border-neutral-800 bg-neutral-900">
+        <main className="flex min-h-screen items-center justify-center p-4">
+            <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle className="text-center text-2xl">Sign In</CardTitle>
+                    <CardTitle className="text-xl ">Sign In</CardTitle>
+                    <CardDescription className="text-sm">
+                        Enter your email and password to access your account
+                    </CardDescription>
                 </CardHeader>
 
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input
-                            name="email"
-                            type="email"
-                            placeholder="Email"
-                            required
-                            className="bg-neutral-800 border-neutral-700"
-                        />
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            {/* Email */}
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="you@example.com"
+                                                type="email"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        <Input
-                            name="password"
-                            type="password"
-                            placeholder="Password"
-                            required
-                            className="bg-neutral-800 border-neutral-700"
-                        />
+                            {/* Password */}
+                            <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <div className="flex items-center">
+                                            <FormLabel>Password</FormLabel>
+                                            <a href="/forgot-password" className="ml-auto text-sm underline">
+                                                Forgot?
+                                            </a>
+                                        </div>
+                                        <FormControl>
+                                            <PasswordInput placeholder="••••••••" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {error && (
-                            <p className="text-red-500 text-sm">{error}</p>
-                        )}
+                            {/* Remember me */}
+                            <FormField
+                                control={form.control}
+                                name="rememberMe"
+                                render={({ field }) => (
+                                    <FormItem className="flex items-center gap-2">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="text-sm">Remember me</FormLabel>
+                                    </FormItem>
+                                )}
+                            />
 
-                        <Button type="submit" className="w-full font-medium">
-                            Sign In
-                        </Button>
-                    </form>
+                            {/* Error */}
+                            {error && (
+                                <p className="text-red-500 text-sm">{error}</p>
+                            )}
+
+                            {/* Submit */}
+                            <LoadingButton className="w-full font-bold border-1 border-green-600" loading={loading} type="submit">
+                                Sign In
+                            </LoadingButton>
+
+                            {/* Social Login */}
+                            <div className="space-y-2 pt-2">
+                                <Button
+                                    variant="outline"
+                                    className="w-full gap-2"
+                                    disabled={loading}
+                                    type="button"
+                                    onClick={() => handleSocial("google")}
+                                >
+                                    <GoogleIcon width="1em" height="1em" /> Sign in with Google
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    className="w-full gap-2"
+                                    disabled={loading}
+                                    type="button"
+                                    onClick={() => handleSocial("github")}
+                                >
+                                    <GitHubIcon /> Sign in with GitHub
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
                 </CardContent>
 
-                <CardFooter className="justify-center text-sm text-neutral-400">
+                <CardFooter className="justify-center text-sm text-muted-foreground">
                     Don't have an account?
-                    <a href="/sign-up" className="ml-1 text-white underline">
-                        Create One
+                    <a href="/sign-up" className="ml-1 underline text-primary">
+                        Sign up
                     </a>
                 </CardFooter>
             </Card>

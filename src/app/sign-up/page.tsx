@@ -1,85 +1,208 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/auth-client";
 
-import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import {
+    Card,
+    CardHeader,
+    CardContent,
+    CardTitle,
+    CardFooter,
+    CardDescription,
+} from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+import {
+    Form,
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormMessage,
+    FormField,
+} from "@/components/ui/form";
+
+import { PasswordInput } from "@/components/password-input";
+import { LoadingButton } from "@/components/loading-button";
+
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
+
+// ----------- VALIDATION -----------
+const schema = z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email(),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type Values = z.infer<typeof schema>;
 
 export default function SignUpPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirect = searchParams.get("redirect") ?? "/dashboard";
+
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        setError(null);
+    const form = useForm<Values>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            name: "",
+            email: "",
+            password: "",
+        },
+    });
 
-        const formData = new FormData(e.currentTarget);
+    async function onSubmit(values: Values) {
+        setError(null);
+        setLoading(true);
 
         const res = await signUp.email({
-            name: formData.get("name") as string,
-            email: formData.get("email") as string,
-            password: formData.get("password") as string,
+            name: values.name,
+            email: values.email,
+            password: values.password,
         });
+
+        setLoading(false);
 
         if (res.error) {
             setError(res.error.message ?? "Something went wrong.");
         } else {
-            router.push("/dashboard");
+            router.push(redirect);
         }
     }
 
+    async function handleSocial(provider: "google" | "github") {
+        setError(null);
+        setLoading(true);
+
+        const res = await signUp.social({
+            provider,
+            callbackURL: redirect,
+        });
+
+        setLoading(false);
+        if (res.error) setError(res.error.message ?? "Something went wrong.");
+    }
+
     return (
-        <main className="flex min-h-screen items-center justify-center p-4 bg-neutral-950">
-            <Card className="w-full max-w-md text-white border-neutral-800 bg-neutral-900">
+        <main className="flex min-h-screen items-center justify-center p-4">
+            <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle className="text-center text-2xl">Create Account</CardTitle>
+                    <CardTitle className="text-xl">Create Account</CardTitle>
+                    <CardDescription className="text-sm">
+                        Create your account to access your dashboard
+                    </CardDescription>
                 </CardHeader>
 
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input
-                            name="name"
-                            placeholder="Full Name"
-                            required
-                            className="bg-neutral-800 border-neutral-700"
-                        />
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            {/* NAME */}
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Full Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="John Doe" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        <Input
-                            name="email"
-                            type="email"
-                            placeholder="Email"
-                            required
-                            className="bg-neutral-800 border-neutral-700"
-                        />
+                            {/* EMAIL */}
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="email"
+                                                placeholder="you@example.com"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        <Input
-                            name="password"
-                            type="password"
-                            placeholder="Password"
-                            minLength={8}
-                            required
-                            className="bg-neutral-800 border-neutral-700"
-                        />
+                            {/* PASSWORD */}
+                            <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Password</FormLabel>
+                                        <FormControl>
+                                            <PasswordInput
+                                                placeholder="••••••••"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {error && (
-                            <p className="text-red-500 text-sm">{error}</p>
-                        )}
+                            {/* ERROR */}
+                            {error && (
+                                <p className="text-red-500 text-sm">{error}</p>
+                            )}
 
-                        <Button
-                            type="submit"
-                            className="w-full font-medium"
-                        >
-                            Create Account
-                        </Button>
-                    </form>
+                            {/* SUBMIT */}
+                            <LoadingButton
+                                className="w-full font-bold"
+                                loading={loading}
+                                type="submit"
+                            >
+                                Create Account
+                            </LoadingButton>
+
+                            {/* SOCIAL LOGIN */}
+                            <div className="space-y-2 pt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full gap-2"
+                                    disabled={loading}
+                                    onClick={() => handleSocial("google")}
+                                >
+                                    <GoogleIcon width="1em" height="1em" />
+                                    Sign up with Google
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full gap-2"
+                                    disabled={loading}
+                                    onClick={() => handleSocial("github")}
+                                >
+                                    <GitHubIcon />
+                                    Sign up with GitHub
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
                 </CardContent>
 
-                <CardFooter className="justify-center text-sm text-neutral-400">
+                <CardFooter className="justify-center text-sm text-muted-foreground">
                     Already have an account?
-                    <a href="/sign-in" className="ml-1 text-white underline">
+                    <a href="/sign-in" className="ml-1 underline text-primary">
                         Sign In
                     </a>
                 </CardFooter>
